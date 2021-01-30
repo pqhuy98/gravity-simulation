@@ -49,7 +49,7 @@ UNIVERSE.addEventListener("wheel", e => {
     e.stopPropagation();
     let sign = e.deltaY / 100; // -1 or 1
     console.log(sign);
-    CAMERA.scale *= Math.exp(sign * Math.log(10));
+    CAMERA.scale *= Math.exp(sign * Math.log(1.1));
 });
 
 // generate bodies
@@ -57,7 +57,7 @@ createBody(0, 0, MAX_BODY_RADIUS, 1e5);
 for(let i = 0; i < BODIES_COUNT; i++) {
     // http://www.anderswallin.net/2009/05/uniform-random-points-in-a-circle-using-polar-coordinates/
     let angle = Math.random() * 2 * Math.PI;
-    let R = Math.min(window.innerWidth, window.innerHeight);
+    let R = Math.min(window.innerWidth, window.innerHeight) / 2;
     let r = R * Math.sqrt(Math.random());
     let x = Math.cos(angle) * r;
     let y = Math.sin(angle) * r;
@@ -77,8 +77,9 @@ bodies.forEach((body) => {
     body.velocity.x = f.y;
     body.velocity.y = -f.x;
 
-    body.velocity.x *= randomFloat(1/1.2, 1.2);
-    body.velocity.y *= randomFloat(1/1.2, 1.2);
+    let deviation = 1;
+    body.velocity.x *= randomFloat(1/deviation, deviation);
+    body.velocity.y *= randomFloat(1/deviation, deviation);
 });
 
 function randomizeRadius() {
