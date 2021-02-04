@@ -1,13 +1,15 @@
 // constants
 
-const GRAVITY_CONSTANT = 1e-3;
-const SUPERSTAR_MASS = 1e7;
-const MAX_BODY_RADIUS = 10;
-const BODIES_COUNT = 500;
+const GRAVITY_CONSTANT = 1e1;
+const SUPERSTAR_MASS = 1e2;
+const MAX_BODY_RADIUS= 20;
+const BODIES_COUNT = 200;
 const INITIAL_DEVIATION = 1.05;
-const EXPANSION_RATE = 0.05
+const EXPANSION_RATE = 0.01;
 const FPS = 60;
+const LOOP_INTERVAL = 1000 / FPS;
 const CCW = Math.floor(Math.random() * 2) * 2 - 1;
+const BASE_HUE = Math.random() * 360;
 
 var CAMERA = {
     position: {
@@ -17,7 +19,7 @@ var CAMERA = {
     scale: 1
 };
 var bodies = [
-    // {
+    // 20
     //  velocity: {
     //      x: ...,
     //      y: ...,
@@ -58,7 +60,6 @@ UNIVERSE.addEventListener("wheel", e => {
     e.stopPropagation();
     let sign = e.deltaY / 100; // -1 or 1
     CAMERA.scale *= Math.exp(sign * Math.log(1.1));
-    // GRAVITY_CONSTANT *= Math.exp(sign * Math.log(1.1));
 });
 
 // generate initial bodies
@@ -80,13 +81,13 @@ setInterval(() => {
         createRandomBody({ initialRadius: 0 });
     }
     loop();
-}, 1000/FPS);
+}, LOOP_INTERVAL);
 
 function createRandomBody({ initialRadius = 1}) {
     // http://www.anderswallin.net/2009/05/uniform-random-points-in-a-circle-using-polar-coordinates/
     let angle = Math.random() * 2 * Math.PI;
     let R = (window.innerWidth + window.innerHeight) / 2 / 2;
-    let r = R * Math.sqrt(Math.random()) + bodies[0].radius;
+    let r = R * Math.random() + bodies[0].radius;
     let x = Math.cos(angle) * r + bodies[0].position.x;
     let y = Math.sin(angle) * r + bodies[0].position.y;
     let radius = randomizeRadius();
@@ -116,8 +117,10 @@ function createRandomBody({ initialRadius = 1}) {
 
 function createBody({ x, y, mass, initialRadius, targetRadius }) {
     // create body
-    let image = document.createElement("div");
-    document.getElementById("universe").append(image);
+    let core = document.createElement("div");
+    let glow = document.createElement("div");
+    UNIVERSE.append(glow);
+    UNIVERSE.append(core);
 
     // add to bodies
     let body = {
@@ -132,10 +135,14 @@ function createBody({ x, y, mass, initialRadius, targetRadius }) {
             x: x,
             y: y,
         },
-        dom: image,
+        baseHue: Math.random() * 360,
+        dom: {
+            core,
+            glow,
+        }
     };
     // body.targetRadius = body.radius;
-    image.addEventListener("click", (e) => {
+    core.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
         if (selected !== body) {
@@ -152,8 +159,11 @@ function createBody({ x, y, mass, initialRadius, targetRadius }) {
 }
 
 function renderBody(body, camera = CAMERA) {
+    let { core, glow } = body.dom;
+
     // if (!isInView(body, camera)) {
-    //     body.dom.style.visibility='hidden';
+    //     core.style.visibility='hidden';
+    //     glow.style.visibility='hidden';
     // }
 
     let bounds = getCameraBounds(CAMERA);
@@ -163,31 +173,40 @@ function renderBody(body, camera = CAMERA) {
     let topPercent = (body.position.y - bounds.lower.y) / boundsSize.y * 100;
     let size = Math.round(2 * body.radius / camera.scale);
 
-    let color1 = "hsl(" + ((60 + 0.1 * body.radius) % 360) + ", 100%, 50%)";
-    let color2 = "hsl(" + ((60 + 0.1 * body.radius) % 360)+ ", 100%, 50%)";
+    let color1 = "hsl(" + ((body.baseHue - 1 * Math.log(body.radius)) % 360) + ", 100%, 80%)";
+    let color2 = "hsl(" + ((body.baseHue - 1 * Math.log(body.radius)) % 360)+ ", 100%, 80%)";
 
-    // update body properties
-    // body.dom.style.visibility='visible';
-    body.dom.className = "star" + (selected === body ? " selected" : "");
-    body.dom.style.left = leftPercent + "%";
-    body.dom.style.top = topPercent + "%";
-    body.dom.style.width = size + "px";
-    body.dom.style.height = size + "px";
-    body.dom.style.boxShadow = `
+    // update dom elements
+
+    // glow.style.visibility='visible';
+    glow.className = "glow" + (selected === body ? " selected" : "");
+    glow.style.left = leftPercent + "%";
+    glow.style.top = topPercent + "%";
+    glow.style.width = size + "px";
+    glow.style.height = size + "px";
+    glow.style.boxShadow = `
         0 0 50px #fff,
         -50px 0 100px ` + color1 + `,
         50px 0 100px ` + color2;
+
+    core.className = "core" + (selected === body ? " selected" : "");
+    core.style.left = leftPercent + "%";
+    core.style.top = topPercent + "%";
+    core.style.width = size + "px";
+    core.style.height = size + "px";
 }
 
 // simulation loop
 function loop() {
     collisionDetection();
     applyGravity();
+    
+    CAMERA.position = bodies[0].position;
     // render all bodies
     bodies.forEach((body) => {
         renderBody(body);
     });
-    console.log("!");
+    // console.log("!");
 }
 
 function collisionDetection() {
@@ -198,15 +217,14 @@ function collisionDetection() {
             let b1 = bodies[i];
             let b2 = bodies[j];
             if (!deleted[i] && !deleted[j] && isCollided(b1, b2)) {
-                if (b1.mass < b2.mass) {
-                    b1.position = b2.position;
-                }
                 b1.mass = b1.mass + b2.mass;
                 b1.targetRadius = Math.sqrt(b1.targetRadius * b1.targetRadius + b2.targetRadius * b2.targetRadius);
                 b1.velocity = mul(add(mul(b1.velocity, b1.mass), mul(b2.velocity, b2.mass)), 1 / (b1.mass + b2.mass));
-                b1.position = mul(add(mul(b1.position, b1.mass), mul(b2.position, b2.mass)), 1 / (b1.mass + b2.mass));
+                // b1.position = mul(add(mul(b1.position, b1.mass), mul(b2.position, b2.mass)), 1 / (b1.mass + b2.mass));
                 if (b1.radius < b2.radius) {
+                    b1.position = b2.position;
                     b1.radius = b2.radius;
+                    b1.baseHue = b2.baseHue;
                 }
                 deleted[j] = true;
             }
@@ -218,7 +236,8 @@ function collisionDetection() {
         if (!deleted[i]) {
             newBodies.push(bodies[i]);
         } else {
-            bodies[i].dom.parentNode.removeChild(bodies[i].dom);
+            bodies[i].dom.glow.parentNode.removeChild(bodies[i].dom.glow);
+            bodies[i].dom.core.parentNode.removeChild(bodies[i].dom.core);
             delete bodies[i];
         }
     }
@@ -312,7 +331,7 @@ function gravityForce(body) {
 }
 function isCollided(body1, body2) {
     let distance = magnitude(sub(body1.position, body2.position));
-    return distance < (Math.max(body1.radius, body2.radius) -1 * Math.min(body1.radius, body2.radius));
+    return distance < (Math.max(body1.radius, body2.radius) - 0.75 * Math.min(body1.radius, body2.radius));
 }
 function randomizeRadius() {
     return Math.exp(Math.random() * Math.log(MAX_BODY_RADIUS));
