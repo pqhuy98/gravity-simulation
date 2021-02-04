@@ -1,13 +1,13 @@
 // constants
 
-const GRAVITY_CONSTANT = 5e4;
+const GRAVITY_CONSTANT =1e1;
 const MAX_BODY_RADIUS= 20;
-const SUPERSTAR_MASS = 1e3;
-const SUPERSTAR_RADIUS = MAX_BODY_RADIUS * 1;
-const BODIES_COUNT = 100;
+const SUPERSTAR_MASS = 1e7;
+const SUPERSTAR_RADIUS = MAX_BODY_RADIUS * 0.7;
+const BODIES_COUNT = 200;
 const INITIAL_DEVIATION = 1.00;
 const EXPANSION_RATE = 0.01;
-const FPS = 100;
+const FPS = 60;
 const LOOP_INTERVAL = 1000 / FPS;
 const CCW = Math.floor(Math.random() * 2) * 2 - 1;
 const EPS = 1e-9;
@@ -77,6 +77,7 @@ UNIVERSE.addEventListener("click", e => {
         ccw: Math.floor(Math.random() * 2) * 2 - 1,
         spawnRadius: MAX_BODY_RADIUS * 30,
         orbitCount: BODIES_COUNT * 0.4,
+        initialRadius: 0,
     });
 });
 // zoom
@@ -104,18 +105,18 @@ UNIVERSE.addEventListener("mousemove", e => {
 });
 
 // generate initial bodies
-function createSuperStar({ x, y, spawnRadius = MAX_BODY_RADIUS * 50, ccw = CCW, orbitCount = 0 }) {
+function createSuperStar({ x, y, spawnRadius = MAX_BODY_RADIUS * 50, ccw = CCW, orbitCount = 0, initialRadius = 1}) {
     let superStar = createBody({
         x, y,
         mass: SUPERSTAR_MASS,
-        initialRadius: 3 * MAX_BODY_RADIUS,
+        initialRadius: 3 * MAX_BODY_RADIUS * initialRadius,
         targetRadius: 3 * MAX_BODY_RADIUS,
     });
     for(let i = 0; i < orbitCount; i++) {
         createRandomBody({
             centralBody: superStar,
             spawnRadius, ccw,
-            initialRadius: 1,
+            initialRadius,
         });
     }
     var itv = setInterval(() => {
@@ -153,7 +154,7 @@ function createRandomBody({ centralBody, spawnRadius = MAX_BODY_RADIUS * 50, ccw
     });
 
     let gravityDirection = normalize(gravityForce(body));
-    let F = Math.sqrt(GRAVITY_CONSTANT * centralBody.mass / magnitude(body.position));
+    let F = Math.sqrt(GRAVITY_CONSTANT * centralBody.mass / r);
     let f = mul(gravityDirection, F);
 
     body.velocity.x = f.y * ccw;
