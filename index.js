@@ -51,19 +51,25 @@ var selected = null;
 
 window.onload = () => {
     let d = Math.random();
-    createSuperStar({
+    let s1 = createSuperStar({
         x: -500, y: 0,
         ccw: Math.floor(Math.random() * 2) * 2 - 1,
         spawnRadius: MAX_BODY_RADIUS * 30,
         orbitCount: BODIES_COUNT * d,
     });
 
-    createSuperStar({
+    let s2 = createSuperStar({
         x: 500, y: 0,
         ccw: Math.floor(Math.random() * 2) * 2 - 1,
         spawnRadius: MAX_BODY_RADIUS * 30,
         orbitCount: BODIES_COUNT * (1 - d),
     });
+    s1.velocity = {
+        x: 0, y: Math.sqrt(GRAVITY_CONSTANT * s2.mass / magnitude(s1.position, s2.position)) / 3,
+    }
+    s2.velocity = {
+        x: 0, y: -Math.sqrt(GRAVITY_CONSTANT * s1.mass / magnitude(s1.position, s2.position)) / 3,
+    }
 }
 
 // listeners
@@ -112,25 +118,28 @@ function createSuperStar({ x, y, spawnRadius = MAX_BODY_RADIUS * 50, ccw = CCW, 
         initialRadius: 3 * MAX_BODY_RADIUS * initialRadius,
         targetRadius: 3 * MAX_BODY_RADIUS,
     });
-    for(let i = 0; i < orbitCount; i++) {
-        createRandomBody({
-            centralBody: superStar,
-            spawnRadius, ccw,
-            initialRadius,
-        });
-    }
-    var itv = setInterval(() => {
-        if (superStar.deleted) {
-            clearInterval(itv);
-        }
-        if (bodies.length < BODIES_COUNT) {
+    setTimeout(() => {
+        for(let i = 0; i < orbitCount; i++) {
             createRandomBody({
                 centralBody: superStar,
                 spawnRadius, ccw,
-                initialRadius: 0,
+                initialRadius,
             });
         }
-    }, 100);
+        var itv = setInterval(() => {
+            if (superStar.deleted) {
+                clearInterval(itv);
+            }
+            if (bodies.length < BODIES_COUNT) {
+                createRandomBody({
+                    centralBody: superStar,
+                    spawnRadius, ccw,
+                    initialRadius: 0,
+                });
+            }
+        }, 100);
+    }, 0);
+    return superStar;
 }
 
 // simulation loop
@@ -157,8 +166,8 @@ function createRandomBody({ centralBody, spawnRadius = MAX_BODY_RADIUS * 50, ccw
     let F = Math.sqrt(GRAVITY_CONSTANT * centralBody.mass / r);
     let f = mul(gravityDirection, F);
 
-    body.velocity.x = f.y * ccw;
-    body.velocity.y = -f.x * ccw;
+    body.velocity.x = f.y * ccw + centralBody.velocity.x;
+    body.velocity.y = -f.x * ccw + centralBody.velocity.y;
 
     let deviation = INITIAL_DEVIATION;
     body.velocity.x *= randomFloat(1/deviation, deviation);
