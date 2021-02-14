@@ -4,7 +4,7 @@ const GRAVITY_CONSTANT =1e1;
 const MAX_BODY_RADIUS= 20;
 const SUPERSTAR_MASS = 1e7;
 const SUPERSTAR_RADIUS = MAX_BODY_RADIUS * 0.7;
-const BODIES_COUNT = 100;
+const BODIES_COUNT = 200;
 const INITIAL_STAR_DISTANCE = 1000;
 
 const INITIAL_DEVIATION = 1.00;
@@ -189,6 +189,7 @@ function createRandomBody({ centralBody, spawnRadius = MAX_BODY_RADIUS * 50, ccw
         initialRadius: initialRadius * radius,
         targetRadius: radius,
     });
+    body.initialRadius *= body.mass;
 
     let gravityDirection = normalize(gravityForce(body));
     let F = Math.sqrt(GRAVITY_CONSTANT * centralBody.mass / r);
@@ -253,7 +254,7 @@ function renderBody(body, camera = CAMERA) {
     let pos = coordUniverseToScreen(body.position, camera);
     let leftPercent = pos.x * 100;
     let topPercent = pos.y * 100;
-    let size = 2 * body.radius / camera.scale;
+    let size = Math.round(2 * body.radius / camera.scale); // Round to prevent lagging
 
     let color1 = "hsl(" + ((body.baseHue - 1 * Math.log(body.radius)) % 360) + ", 100%, 70%)";
     let color2 = "hsl(" + ((body.baseHue - 1 * Math.log(body.radius)) % 360)+ ", 100%, 70%)";
@@ -359,7 +360,7 @@ function applyGravity() {
 
 function cleanUpBodies() {
     // Remove bodies that are too far away from camera
-    cleanUpFarParticles();
+    // cleanUpFarParticles();
     
     // remove all deleted objects
     let newBodies = [];
