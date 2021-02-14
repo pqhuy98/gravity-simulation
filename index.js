@@ -4,13 +4,22 @@ const GRAVITY_CONSTANT =1e1;
 const MAX_BODY_RADIUS= 20;
 const SUPERSTAR_MASS = 1e7;
 const SUPERSTAR_RADIUS = MAX_BODY_RADIUS * 0.7;
-const BODIES_COUNT = 200;
+const BODIES_COUNT = 100;
+const INITIAL_STAR_DISTANCE = 1000;
+
 const INITIAL_DEVIATION = 1.00;
 const EXPANSION_RATE = 0.01;
-const FPS = 60;
-const LOOP_INTERVAL = 1000 / FPS;
+const DELTA_T = 1 / 1000; // seconds
+const LOOP_INTERVAL = 1000 / 60 // 60 FPS
+
 const CCW = Math.floor(Math.random() * 2) * 2 - 1;
 const EPS = 1e-9;
+
+const INVISIBLE_CLEANUP = {
+    maxDistance: 50,
+    durationThreshold: 20, // seconds
+    massThreshold: 2,
+}
 // const BASE_HUE = Math.random() * 360;
 
 var CAMERA = {
@@ -21,6 +30,7 @@ var CAMERA = {
     scale: 2,
     cursorLock: {
         isMoving: false,
+        disableOtherClickEvents: false,
         lockPoint: {
             x: 0,
             y: 0,
@@ -52,23 +62,28 @@ var selected = null;
 window.onload = () => {
     let d = Math.random();
     let s1 = createSuperStar({
-        x: -500, y: 0,
+        x: - INITIAL_STAR_DISTANCE / 2, y: 0,
         ccw: Math.floor(Math.random() * 2) * 2 - 1,
         spawnRadius: MAX_BODY_RADIUS * 30,
         orbitCount: BODIES_COUNT * d,
     });
 
     let s2 = createSuperStar({
-        x: 500, y: 0,
+        x: INITIAL_STAR_DISTANCE / 2, y: 0,
         ccw: Math.floor(Math.random() * 2) * 2 - 1,
         spawnRadius: MAX_BODY_RADIUS * 30,
         orbitCount: BODIES_COUNT * (1 - d),
     });
+    let R = magnitude(s1.position, s2.position);
+    let m1 = s1.mass, m2 = s2.mass;
+    let M = m1 + m2;
+    let v =  Math.sqrt(GRAVITY_CONSTANT * m1 * m2 / (R * 2) / (m1 + m2));
+    v *= randomFloat(0.01, 0.1);
     s1.velocity = {
-        x: 0, y: Math.sqrt(GRAVITY_CONSTANT * s2.mass / magnitude(s1.position, s2.position)) / 3,
+        x: 0, y: v,
     }
     s2.velocity = {
-        x: 0, y: -Math.sqrt(GRAVITY_CONSTANT * s1.mass / magnitude(s1.position, s2.position)) / 3,
+        x: 0, y: -v,
     }
 }
 
@@ -76,6 +91,9 @@ window.onload = () => {
 const UNIVERSE = document.getElementById("universe");
 // add bodies
 UNIVERSE.addEventListener("click", e => {
+    if (CAMERA.cursorLock.disableOtherClickEvents) {
+        return;
+    }
     let { x, y } = coordScreenToUniverse(MOUSE_POS, CAMERA);
 
     createSuperStar({
@@ -98,12 +116,14 @@ UNIVERSE.addEventListener("mousedown", e => {
     e.preventDefault();
     e.stopPropagation();
     CAMERA.cursorLock.isMoving = true;
+    CAMERA.cursorLock.disableOtherClickEvents = false;
     MOUSE_POS = getMousePosition(e);
 });
 UNIVERSE.addEventListener("mouseup", e => {
     CAMERA.cursorLock.isMoving = false;
 });
 UNIVERSE.addEventListener("mousemove", e => {
+    CAMERA.cursorLock.disableOtherClickEvents = true;
     MOUSE_POS = getMousePosition(e);
     if (!CAMERA.cursorLock.isMoving) {
         CAMERA.cursorLock.lockPoint = coordScreenToUniverse(MOUSE_POS, CAMERA);
@@ -142,9 +162,17 @@ function createSuperStar({ x, y, spawnRadius = MAX_BODY_RADIUS * 50, ccw = CCW, 
     return superStar;
 }
 
+var mn = 1e9, mx = -1e9, ERR;
 // simulation loop
 setInterval(() => {
     loop();
+
+    // calculate distance error
+    let mag = magnitude(sub(bodies[0].position, bodies[1].position));
+    mn = Math.min(mag, mn);
+    mx = Math.max(mag, mx);
+    ERR = ((mx - mn) / mx * 100).toFixed(2);
+
 }, LOOP_INTERVAL);
 
 function createRandomBody({ centralBody, spawnRadius = MAX_BODY_RADIUS * 50, ccw = CCW, initialRadius = 1}) {
@@ -186,6 +214,8 @@ function createBody({ x, y, mass, initialRadius, targetRadius }) {
         radius: initialRadius,
         targetRadius: targetRadius,
         mass: mass,
+        deleted: false,
+        lastShown: Date.now(),
         velocity: {
             x: 0,
             y: 0,
@@ -198,7 +228,7 @@ function createBody({ x, y, mass, initialRadius, targetRadius }) {
         dom: {
             core,
             glow,
-        }
+        },
     };
     // body.targetRadius = body.radius;
     core.addEventListener("click", (e) => {
@@ -223,10 +253,10 @@ function renderBody(body, camera = CAMERA) {
     let pos = coordUniverseToScreen(body.position, camera);
     let leftPercent = pos.x * 100;
     let topPercent = pos.y * 100;
-    let size = Math.round(2 * body.radius / camera.scale);
+    let size = 2 * body.radius / camera.scale;
 
-    let color1 = "hsl(" + ((body.baseHue - 1 * Math.log(body.radius)) % 360) + ", 100%, 80%)";
-    let color2 = "hsl(" + ((body.baseHue - 1 * Math.log(body.radius)) % 360)+ ", 100%, 80%)";
+    let color1 = "hsl(" + ((body.baseHue - 1 * Math.log(body.radius)) % 360) + ", 100%, 70%)";
+    let color2 = "hsl(" + ((body.baseHue - 1 * Math.log(body.radius)) % 360)+ ", 100%, 70%)";
 
     // update dom elements
 
@@ -246,19 +276,26 @@ function renderBody(body, camera = CAMERA) {
     core.style.top = topPercent + "%";
     core.style.width = size + "px";
     core.style.height = size + "px";
+
+    if (Math.abs(leftPercent / 100 * 2 - 1) < INVISIBLE_CLEANUP.maxDistance && Math.abs(topPercent / 100 * 2 - 1) < INVISIBLE_CLEANUP.maxDistance) {
+        body.lastShown = Date.now();
+    } 
 }
 
 // simulation loop
 function loop() {
     collisionDetection();
+    cleanUpBodies();
     moveBodies();
     applyGravity();
     
     if (selected) {
         CAMERA.position = selected.position;
     } else {
-        let newCenter = alignScreenAndUniverse(MOUSE_POS, CAMERA.cursorLock.lockPoint, CAMERA);
-        CAMERA.position = newCenter;
+        if (CAMERA.cursorLock.isMoving) {
+            let newCenter = alignScreenAndUniverse(MOUSE_POS, CAMERA.cursorLock.lockPoint, CAMERA);
+            CAMERA.position = newCenter;            
+        }
     }
     // render all bodies
     bodies.forEach((body) => {
@@ -269,21 +306,20 @@ function loop() {
 
 function collisionDetection() {
     // Collision simulation
-    let deleted = {};
     for(let i0 = 0; i0 < bodies.length; i0++) {
         for(let j0 = i0 + 1; j0 < bodies.length; j0++) {
             let i = i0, j = j0;
-            if (deleted[i] || deleted[j]) {
-                continue;
-            }
             let b1 = bodies[i];
             let b2 = bodies[j];
+            if (b1.deleted || b2.deleted) {
+                continue;
+            }
             if (b1.mass < b2.mass) {
                 [b1, b2] = [b2, b1];
                 [i, j] = [j, i];
             }
             let t = willCollide(b1, b2);
-            if (t === null || t >= 1/FPS) {
+            if (t === null || t >= DELTA_T) {
                 continue;
             }
 
@@ -293,28 +329,15 @@ function collisionDetection() {
             if (b1.radius < b2.radius) {
                 b1.radius = b2.radius;
             }
-            deleted[j] = true;
+            b2.deleted = true;
         }
     }
-    // remove all deleted objects
-    let newBodies = [];
-    for(let i = 0; i < bodies.length; i++) {
-        if (!deleted[i]) {
-            newBodies.push(bodies[i]);
-        } else {
-            bodies[i].dom.glow.parentNode.removeChild(bodies[i].dom.glow);
-            bodies[i].dom.core.parentNode.removeChild(bodies[i].dom.core);
-            bodies[i].deleted = true;
-            delete bodies[i];
-        }
-    }
-    bodies = newBodies;
 }
 
 function moveBodies() {
     bodies.forEach((body) => {
         // x = x + v
-        body.position = add(body.position, mul(body.velocity, 1 / FPS));
+        body.position = add(body.position, mul(body.velocity, DELTA_T));
         body.radius += (body.targetRadius - body.radius) * EXPANSION_RATE; 
     })
 }
@@ -330,7 +353,35 @@ function applyGravity() {
         // F = ma => a = F/m
         let acceleration = mul(force[i], 1 / body.mass);
         // v = v + a
-        body.velocity = add(body.velocity, mul(acceleration, 1 / FPS));
+        body.velocity = add(body.velocity, mul(acceleration, DELTA_T));
+    });
+}
+
+function cleanUpBodies() {
+    // Remove bodies that are too far away from camera
+    cleanUpFarParticles();
+    
+    // remove all deleted objects
+    let newBodies = [];
+    for(let i = 0; i < bodies.length; i++) {
+        if (!bodies[i].deleted) {
+            newBodies.push(bodies[i]);
+        } else {
+            bodies[i].dom.glow.parentNode.removeChild(bodies[i].dom.glow);
+            bodies[i].dom.core.parentNode.removeChild(bodies[i].dom.core);
+            delete bodies[i];
+        }
+    }
+    bodies = newBodies;
+}
+
+function cleanUpFarParticles() {
+    bodies.forEach((b) => {
+        let dt = (Date.now() - b.lastShown) / 1000;
+        let massThreshold = dt / INVISIBLE_CLEANUP.durationThreshold * INVISIBLE_CLEANUP.massThreshold;
+        if (dt > INVISIBLE_CLEANUP.durationThreshold && b.mass < massThreshold) {
+            b.deleted = true;
+        }
     });
 }
 
@@ -457,7 +508,7 @@ function gravityForce(body) {
 // b = 2*((dx - du)*(x - u) + (dy - dv)*(y - v))
 // c = (x - u)^2 + (y - v)^2 - R^2
 function willCollide(body1, body2) {
-    let R = Math.max(body1.radius, body2.radius) - 0.75 * Math.min(body1.radius, body2.radius)
+    let R = Math.max(body1.radius, body2.radius) - 0.90 * Math.min(body1.radius, body2.radius)
     let x = body1.position.x;
     let y = body1.position.y;
     let dx = body1.velocity.x;
