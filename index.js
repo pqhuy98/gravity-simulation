@@ -329,6 +329,7 @@ function collisionDetection() {
             b1.mass = b1.mass + b2.mass;
             if (b1.radius < b2.radius) {
                 b1.radius = b2.radius;
+                b1.position = b2.position;
             }
             b2.deleted = true;
         }
@@ -509,7 +510,7 @@ function gravityForce(body) {
 // b = 2*((dx - du)*(x - u) + (dy - dv)*(y - v))
 // c = (x - u)^2 + (y - v)^2 - R^2
 function willCollide(body1, body2) {
-    let R = Math.max(body1.radius, body2.radius) - 0.90 * Math.min(body1.radius, body2.radius)
+    let R = Math.max(body1.radius, body2.radius) - 0.85 * Math.min(body1.radius, body2.radius)
     let x = body1.position.x;
     let y = body1.position.y;
     let dx = body1.velocity.x;
