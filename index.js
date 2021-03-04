@@ -1,10 +1,10 @@
 // constants
 
-const GRAVITY_CONSTANT =1e1;
-const MAX_BODY_RADIUS= 20;
+const GRAVITY_CONSTANT = 1e3;
+const MAX_BODY_RADIUS = 20;
 const SUPERSTAR_MASS = 1e7;
 const SUPERSTAR_RADIUS = MAX_BODY_RADIUS * 0.7;
-const BODIES_COUNT = 200;
+const BODIES_COUNT = 5000;
 const INITIAL_STAR_DISTANCE = 1000;
 
 const INITIAL_DEVIATION = 1.00;
@@ -25,7 +25,7 @@ const INVISIBLE_CLEANUP = {
 var CAMERA = {
     position: {
         x: 0,
-        y: 0,    
+        y: 0,
     },
     scale: 2,
     cursorLock: {
@@ -77,14 +77,14 @@ window.onload = () => {
     let R = magnitude(s1.position, s2.position);
     let m1 = s1.mass, m2 = s2.mass;
     let M = m1 + m2;
-    let v =  Math.sqrt(GRAVITY_CONSTANT * m1 * m2 / (R * 2) / (m1 + m2));
+    let v = Math.sqrt(GRAVITY_CONSTANT * m1 * m2 / (R * 2) / (m1 + m2));
     v *= randomFloat(0.01, 0.1);
-    s1.velocity = {
-        x: 0, y: v,
-    }
-    s2.velocity = {
-        x: 0, y: -v,
-    }
+    // s1.velocity = {
+    //     x: 0, y: v,
+    // }
+    // s2.velocity = {
+    //     x: 0, y: -v,
+    // }
 }
 
 // listeners
@@ -131,7 +131,7 @@ UNIVERSE.addEventListener("mousemove", e => {
 });
 
 // generate initial bodies
-function createSuperStar({ x, y, spawnRadius = MAX_BODY_RADIUS * 50, ccw = CCW, orbitCount = 0, initialRadius = 1}) {
+function createSuperStar({ x, y, spawnRadius = MAX_BODY_RADIUS * 50, ccw = CCW, orbitCount = 0, initialRadius = 1 }) {
     let superStar = createBody({
         x, y,
         mass: SUPERSTAR_MASS,
@@ -139,7 +139,7 @@ function createSuperStar({ x, y, spawnRadius = MAX_BODY_RADIUS * 50, ccw = CCW, 
         targetRadius: 3 * MAX_BODY_RADIUS,
     });
     setTimeout(() => {
-        for(let i = 0; i < orbitCount; i++) {
+        for (let i = 0; i < orbitCount; i++) {
             createRandomBody({
                 centralBody: superStar,
                 spawnRadius, ccw,
@@ -175,7 +175,7 @@ setInterval(() => {
 
 }, LOOP_INTERVAL);
 
-function createRandomBody({ centralBody, spawnRadius = MAX_BODY_RADIUS * 50, ccw = CCW, initialRadius = 1}) {
+function createRandomBody({ centralBody, spawnRadius = MAX_BODY_RADIUS * 50, ccw = CCW, initialRadius = 1 }) {
     // http://www.anderswallin.net/2009/05/uniform-random-points-in-a-circle-using-polar-coordinates/
     let angle = Math.random() * 2 * Math.PI;
     let r = spawnRadius * Math.sqrt(Math.random()) + centralBody.radius;
@@ -199,8 +199,8 @@ function createRandomBody({ centralBody, spawnRadius = MAX_BODY_RADIUS * 50, ccw
     body.velocity.y = -f.x * ccw + centralBody.velocity.y;
 
     let deviation = INITIAL_DEVIATION;
-    body.velocity.x *= randomFloat(1/deviation, deviation);
-    body.velocity.y *= randomFloat(1/deviation, deviation);
+    body.velocity.x *= randomFloat(1 / deviation, deviation);
+    body.velocity.y *= randomFloat(1 / deviation, deviation);
 }
 
 function createBody({ x, y, mass, initialRadius, targetRadius }) {
@@ -257,7 +257,7 @@ function renderBody(body, camera = CAMERA) {
     let size = Math.round(2 * body.radius / camera.scale); // Round to prevent lagging
 
     let color1 = "hsl(" + ((body.baseHue - 1 * Math.log(body.radius)) % 360) + ", 100%, 70%)";
-    let color2 = "hsl(" + ((body.baseHue - 1 * Math.log(body.radius)) % 360)+ ", 100%, 70%)";
+    let color2 = "hsl(" + ((body.baseHue - 1 * Math.log(body.radius)) % 360) + ", 100%, 70%)";
 
     // update dom elements
 
@@ -267,10 +267,10 @@ function renderBody(body, camera = CAMERA) {
     glow.style.top = topPercent + "%";
     glow.style.width = size + "px";
     glow.style.height = size + "px";
-    glow.style.boxShadow = `
-        0 0 50px #fff,
-        -50px 0 100px ` + color1 + `,
-        50px 0 100px ` + color2;
+    // glow.style.boxShadow = `
+    //     0 0 50px #fff,
+    //     -50px 0 100px ` + color1 + `,
+    //     50px 0 100px ` + color2;
 
     core.className = "core" + (selected === body ? " selected" : "");
     core.style.left = leftPercent + "%";
@@ -280,22 +280,22 @@ function renderBody(body, camera = CAMERA) {
 
     if (Math.abs(leftPercent / 100 * 2 - 1) < INVISIBLE_CLEANUP.maxDistance && Math.abs(topPercent / 100 * 2 - 1) < INVISIBLE_CLEANUP.maxDistance) {
         body.lastShown = Date.now();
-    } 
+    }
 }
 
 // simulation loop
 function loop() {
-    collisionDetection();
+    // collisionDetection();
     cleanUpBodies();
     moveBodies();
     applyGravity();
-    
+
     if (selected) {
         CAMERA.position = selected.position;
     } else {
         if (CAMERA.cursorLock.isMoving) {
             let newCenter = alignScreenAndUniverse(MOUSE_POS, CAMERA.cursorLock.lockPoint, CAMERA);
-            CAMERA.position = newCenter;            
+            CAMERA.position = newCenter;
         }
     }
     // render all bodies
@@ -307,8 +307,8 @@ function loop() {
 
 function collisionDetection() {
     // Collision simulation
-    for(let i0 = 0; i0 < bodies.length; i0++) {
-        for(let j0 = i0 + 1; j0 < bodies.length; j0++) {
+    for (let i0 = 0; i0 < bodies.length; i0++) {
+        for (let j0 = i0 + 1; j0 < bodies.length; j0++) {
             let i = i0, j = j0;
             let b1 = bodies[i];
             let b2 = bodies[j];
@@ -340,11 +340,42 @@ function moveBodies() {
     bodies.forEach((body) => {
         // x = x + v
         body.position = add(body.position, mul(body.velocity, DELTA_T));
-        body.radius += (body.targetRadius - body.radius) * EXPANSION_RATE; 
+        body.radius += (body.targetRadius - body.radius) * EXPANSION_RATE;
     })
 }
-
 function applyGravity() {
+    if (true) {
+        if (bodies.length === 0) return;
+        // use Quadtree
+        let lx, ly, hx, hy;
+        lx = hx = bodies[0].position.x;
+        ly = hy = bodies[0].position.y;
+        bodies.forEach(b => {
+            lx = Math.min(lx, b.position.x);
+            ly = Math.min(ly, b.position.y);
+            hx = Math.max(hx, b.position.x);
+            hy = Math.max(hy, b.position.y);
+        });
+        let qt = new QuadNode(null, lx, ly, Math.max(hx - lx, hy - ly) + EPS);
+        bodies.forEach(b => {
+            b.qtObj = {
+                x: b.position.x,
+                y: b.position.y,
+                mass: b.mass,
+            }
+            qt.addObject(b.qtObj);
+        });
+        // console.log(qt);
+        bodies.forEach((body) => {
+            let [ax, ay] = qt.getAcceleration(body.qtObj, 10);
+            ax *= GRAVITY_CONSTANT;
+            ay *= GRAVITY_CONSTANT;
+            // v = v + a
+            body.velocity = add(body.velocity, mul({ x: ax, y: ay }, DELTA_T));
+        });
+
+        return;
+    }
     // Calculate combined forces of all bodies
     let force = {};
     bodies.forEach((body, i) => {
@@ -362,10 +393,10 @@ function applyGravity() {
 function cleanUpBodies() {
     // Remove bodies that are too far away from camera
     // cleanUpFarParticles();
-    
+
     // remove all deleted objects
     let newBodies = [];
-    for(let i = 0; i < bodies.length; i++) {
+    for (let i = 0; i < bodies.length; i++) {
         if (!bodies[i].deleted) {
             newBodies.push(bodies[i]);
         } else {
@@ -419,12 +450,12 @@ function getCameraBounds(camera = CAMERA) {
     let h = window.innerHeight * camera.scale;
     return {
         lower: {
-            x: camera.position.x - w/2,
-            y: camera.position.y - h/2,
+            x: camera.position.x - w / 2,
+            y: camera.position.y - h / 2,
         },
         upper: {
-            x: camera.position.x + w/2,
-            y: camera.position.y + h/2,
+            x: camera.position.x + w / 2,
+            y: camera.position.y + h / 2,
         },
     };
 }
@@ -465,7 +496,7 @@ function alignScreenAndUniverse(screenXY, universeXY, camera = CAMERA) {
         x: universeXY.x + (0.5 - screenXY.x) * window.innerWidth * camera.scale,
         y: universeXY.y + (0.5 - screenXY.y) * window.innerHeight * camera.scale,
     }
-} 
+}
 
 // physics functions
 function gravityForce(body) {
@@ -519,9 +550,9 @@ function willCollide(body1, body2) {
     let v = body2.position.y;
     let du = body2.velocity.x;
     let dv = body2.velocity.y;
-    let a = (dx - du)*(dx - du) + (dy - dv)*(dy - dv); // a is always non-negative
-    let b = 2*((dx - du)*(x - u) + (dy - dv)*(y - v));
-    let c = (x - u)*(x - u) + (y - v)*(y - v) - R*R;
+    let a = (dx - du) * (dx - du) + (dy - dv) * (dy - dv); // a is always non-negative
+    let b = 2 * ((dx - du) * (x - u) + (dy - dv) * (y - v));
+    let c = (x - u) * (x - u) + (y - v) * (y - v) - R * R;
 
     if (a < EPS) { // a == 0
         // this is a linear inequality b*t + c <= 0
@@ -530,7 +561,7 @@ function willCollide(body1, body2) {
             return 0; // two bodies already collide
         } else if (b < 0) {
             // t >= c/b
-            return c/b; // they will collide when t = c/b
+            return c / b; // they will collide when t = c/b
         } else { // b == 0
             // solve inequality 0*t + c <= 0
             if (c < 0) {
@@ -541,7 +572,7 @@ function willCollide(body1, body2) {
         }
     } else {
         // this is a quadratic inequality a*t^2 + b*t + c <= 0
-        let discriminant = b*b - 4*a*c;
+        let discriminant = b * b - 4 * a * c;
         if (Math.abs(discriminant) < EPS) { // discriminant == 0
             let sol = -b / 2 / a;
             if (sol < -EPS) {
