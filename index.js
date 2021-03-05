@@ -206,8 +206,8 @@ function refreshLoop() {
         fpsDeviation = fpsDeviation * 0.9 + 0.1 * devi;
         avgFPS = newFPS;
 
-        if (fpsDeviation < 2) {
-            if (avgFPS < 20) {
+        if (fpsDeviation < 4) {
+            if (avgFPS < 30) {
                 autoReload--;
                 autoReload === 0 && location.reload();
             } else {
@@ -747,11 +747,11 @@ function updateBodyCount() {
         // fps is ok, flunctuate it only a bit
         bodyCount = Math.round(bodyCount * 0.9 + 0.1 * bodies.length * randomExp(0.90, 1.1));
     } else if (avgFPS >= 50) {
-        bodyCount = Math.round(bodyCount * 0.9 + 0.1 * bodies.length / randomExp(1.1, 1.3));
+        bodyCount = Math.round(bodyCount * 0.7 + 0.3 * bodies.length / randomExp(1.1, 1.3));
     } else if (avgFPS >= 15) {
-        bodyCount = Math.round(bodyCount * 0.9 + 0.1 * bodies.length / randomExp(1.3, 1.6));
+        bodyCount = Math.round(bodyCount * 0.6 + 0.4 * bodies.length / randomExp(1.3, 1.6));
     } else {
-        bodyCount = Math.round(bodyCount * 0.9 + 0.1 * bodies.length / randomExp(1.6, 1.9));
+        bodyCount = Math.round(bodyCount * 0.5 + 0.5 * bodies.length / randomExp(1.6, 1.9));
     }
     return null;
 };
