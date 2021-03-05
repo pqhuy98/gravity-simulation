@@ -4,7 +4,7 @@ const GRAVITY_CONSTANT = randomExp(1e2, 1e5);
 const MAX_BODY_RADIUS = 10;
 const SUPERSTAR_MASS = 1e7;
 const SUPERSTAR_RADIUS = MAX_BODY_RADIUS * 0.7;
-const BODIES_COUNT = (parseInt(localStorage.getItem("bodyCount")) || 4000);// * randomExp(0.8, 1 / 0.8);
+const BODIES_COUNT = (parseInt(localStorage.getItem("bodyCount")) || 1000);// * randomExp(0.8, 1 / 0.8);
 const INITIAL_STAR_DISTANCE = randomExp(500, 5000);
 const SPAWN_RADIUS_FACTOR = randomExp(0.15, 1 / 0.15);
 
