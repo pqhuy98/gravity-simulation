@@ -4,7 +4,8 @@ const GRAVITY_CONSTANT = randomExp(1e2, 1e5);
 const MAX_BODY_RADIUS = 10;
 const SUPERSTAR_MASS = 1e7;
 const SUPERSTAR_RADIUS = MAX_BODY_RADIUS * 0.7;
-const BODIES_COUNT = (parseInt(localStorage.getItem("bodyCount")) || 1000);// * randomExp(0.8, 1 / 0.8);
+// const BODIES_COUNT = 500;
+var BODIES_COUNT = (parseInt(localStorage.getItem("bodyCount")) || 100);// * randomExp(0.8, 1 / 0.8);
 const INITIAL_STAR_DISTANCE = randomExp(500, 5000);
 const SPAWN_RADIUS_FACTOR = randomExp(0.15, 1 / 0.15);
 
@@ -183,17 +184,54 @@ function createSuperStar({ x, y, spawnRadius = MAX_BODY_RADIUS * 50, ccw = CCW, 
 
 var mn = 1e9, mx = -1e9, ERR;
 // simulation loop
-setInterval(() => {
-    loop();
+var times = [];
+var latestFPS, avgFPS = null, fpsDeviation = 70;
+var autoReload = 10;
+var start = performance.now();
 
-    // calculate distance error
-    let mag = magnitude(sub(bodies[0].position, bodies[1].position));
-    mn = Math.min(mag, mn);
-    mx = Math.max(mag, mx);
-    ERR = ((mx - mn) / mx * 100).toFixed(2);
-    // console.log(ERR);
+function refreshLoop() {
+    window.requestAnimationFrame(function () {
+        // FPS stuffs
+        const now = performance.now();
+        while (times.length > 0 && times[0] <= now - 1000) {
+            times.shift();
+        }
+        times.push(now);
+        latestFPS = times.length / Math.min(1, (performance.now() - start) / 1000);
+        if (avgFPS === null) avgFPS = latestFPS;
 
-}, LOOP_INTERVAL);
+        let newFPS = avgFPS * 0.5 + 0.5 * latestFPS;
+
+        let devi = Math.abs(newFPS - avgFPS);
+        fpsDeviation = fpsDeviation * 0.9 + 0.1 * devi;
+        avgFPS = newFPS;
+
+        if (fpsDeviation < 2) {
+            if (avgFPS < 20) {
+                autoReload--;
+                autoReload === 0 && location.reload();
+            } else {
+                autoReload = 10;
+            }
+        }
+
+        // works
+        loop();
+        updateBodyCount();
+        // calculate distance error
+        try {
+            let mag = magnitude(sub(bodies[0].position, bodies[1].position));
+            mn = Math.min(mag, mn);
+            mx = Math.max(mag, mx);
+            ERR = ((mx - mn) / mx * 100).toFixed(2);
+            // console.log(ERR);
+        } catch (e) { }
+
+        // next frame
+        refreshLoop();
+    });
+}
+
 
 function createRandomBody({ centralBody, spawnRadius = MAX_BODY_RADIUS * 50, ccw = CCW, initialRadius = 1 }) {
     // http://www.anderswallin.net/2009/05/uniform-random-points-in-a-circle-using-polar-coordinates/
@@ -246,7 +284,7 @@ function createBody({ x, y, mass, initialRadius, targetRadius }) {
     renderBodies([body]);
     return body;
 }
-
+var drawnCnt = 0;
 function renderBodies(bodies, camera = CAMERA) {
     CONTEXT.fillStyle = "white";
     CONTEXT.shadowOffsetX = 0;
@@ -278,10 +316,8 @@ function renderBodies(bodies, camera = CAMERA) {
         }
         drawn.push({ x, y, size, color });
     });
+    drawnCnt = drawn.length;
     if (drawn.length === 0) return;
-    if (drawn.length > bodies.length * 0.95 && fpsDeviation < 4) {
-        saveBodyCount();
-    }
 
     drawn.sort((a, b) => b.size - a.size);
     let idx = Math.max(GLOW_COUNT_MINIMUM, Math.round(drawn.length * GLOW_COUNT_PERCENT));
@@ -309,11 +345,6 @@ function renderBodies(bodies, camera = CAMERA) {
         CONTEXT.fill();
     });
 }
-
-var currentFPS = null;
-var latestFps = null;
-var fpsDeviation = 70;
-var autoReload = 10;
 
 // simulation loop
 function loop() {
@@ -350,27 +381,8 @@ function loop() {
     renderBodies(bodies);
 
     // draw FPS
-    let latestFps = 1000 / t.tick("render");
-    if (currentFPS === null) currentFPS = latestFps;
-
-    newFPS = currentFPS * 0.8 + 0.2 * latestFps;
-    newFPS = Math.min(1000 / LOOP_INTERVAL, newFPS);
-
-    let devi = Math.abs(newFPS - currentFPS);
-    fpsDeviation = fpsDeviation * 0.6 + 0.4 * devi;
-    currentFPS = newFPS;
-
-    if (fpsDeviation < 2) {
-        if (currentFPS < 35 || latestFps > 90) {
-            autoReload--;
-            autoReload === 0 && location.reload();
-        } else {
-            autoReload = 10;
-        }
-    }
-
     CONTEXT.font = TIMER_FONT_SIZE + "px " + TIMER_FONT;
-    CONTEXT.fillText(Math.round(currentFPS) + "/" + Math.round(fpsDeviation), UNIVERSE.width - 40, 10 + TIMER_FONT_SIZE);
+    CONTEXT.fillText(Math.round(avgFPS) + "/" + Math.round(fpsDeviation), UNIVERSE.width - 40, 10 + TIMER_FONT_SIZE);
 
     // draw number of objects
     CONTEXT.font = TIMER_FONT_SIZE + "px " + TIMER_FONT;
@@ -721,24 +733,30 @@ var reloadTime = randomExp(3 * 60, 5 * 60); // seconds
     }, LOOP_INTERVAL * 10);
 })()
 
-function saveBodyCount() {
-    let bodyCount = parseInt(localStorage.getItem("bodyCount")) || bodies.length;
-    console.log(bodyCount);
-    if (latestFps > 75) {
-        localStorage.setItem("bodyCount", Math.round(bodyCount * 0.1 + 0.9 * bodies.length * randomExp(1.9, 2.1)));
-    } else if (currentFPS >= 68) {
-        localStorage.setItem("bodyCount", Math.round(bodyCount * 0.5 + 0.5 * bodies.length * randomExp(1.2, 1.3)));
-    } else if (currentFPS >= 60) {
-        localStorage.setItem("bodyCount", Math.round(bodyCount * 0.8 + 0.2 * bodies.length * randomExp(1.1, 1.2)));
-    } else if (currentFPS >= 50) {
+var bodyCount = BODIES_COUNT;
+function updateBodyCount() {
+    if (drawnCnt < bodies.length * 0.8) return;
+    if (avgFPS > 59) {
+        bodyCount = Math.round(bodyCount * 0.7 + 0.3 * bodies.length * randomExp(1.3, 1.6));
+        if (bodies.length >= BODIES_COUNT && BODIES_COUNT < bodyCount * 0.7) {
+            BODIES_COUNT = Math.round(BODIES_COUNT * randomExp(1.05, 1.15));
+        }
+    } else if (avgFPS >= 57) {
+        bodyCount = Math.round(bodyCount * 0.8 + 0.2 * bodies.length * randomExp(1.1, 1.3));
+    } else if (avgFPS >= 55) {
         // fps is ok, flunctuate it only a bit
-        localStorage.setItem("bodyCount", Math.round(bodyCount * 0.9 + 0.1 * bodies.length * randomExp(0.90, 1.1)));
-    } else if (currentFPS >= 30) {
-        localStorage.setItem("bodyCount", Math.round(bodyCount * 0.8 + 0.2 * bodies.length / randomExp(1.2, 1.3)));
-    } else if (currentFPS >= 15) {
-        localStorage.setItem("bodyCount", Math.round(bodyCount * 0.5 + 0.5 * bodies.length / randomExp(1.5, 1.6)));
+        bodyCount = Math.round(bodyCount * 0.9 + 0.1 * bodies.length * randomExp(0.90, 1.1));
+    } else if (avgFPS >= 50) {
+        bodyCount = Math.round(bodyCount * 0.9 + 0.1 * bodies.length / randomExp(1.1, 1.3));
+    } else if (avgFPS >= 15) {
+        bodyCount = Math.round(bodyCount * 0.9 + 0.1 * bodies.length / randomExp(1.3, 1.6));
     } else {
-        localStorage.setItem("bodyCount", Math.round(bodyCount * 0.2 + 0.8 * bodies.length / randomExp(1.9, 2.1)));
+        bodyCount = Math.round(bodyCount * 0.9 + 0.1 * bodies.length / randomExp(1.6, 1.9));
     }
     return null;
 };
+setInterval(() => {
+    let old = localStorage.getItem("bodyCount");
+    localStorage.setItem("bodyCount", Math.round(old * 0.7 + 0.3 * bodyCount));
+}, 300);
+refreshLoop();
