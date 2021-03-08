@@ -30,7 +30,10 @@ class QuadNode {
     }
 
     intersect(lx, ly, sz) {
-        return !(this.lx >= lx + sz || this.lx + this.sz <= lx) && !(this.ly >= ly + sz || this.ly + this.sz <= ly);
+        return (
+            !(this.lx >= lx + sz || this.lx + this.sz <= lx) &&
+            !(this.ly >= ly + sz || this.ly + this.sz <= ly)
+        );
     }
 
     __update(updateExtra = true) {

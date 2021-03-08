@@ -1,6 +1,6 @@
 // constants
 
-const GRAVITY_CONSTANT = randomExp(1e2, 1e5);
+const GRAVITY_CONSTANT = randomExp(1e2, 1e3);
 const MAX_BODY_RADIUS = 10;
 const SUPERSTAR_MASS = 1e7;
 // const BODIES_COUNT = 500;
@@ -14,7 +14,7 @@ const ORBITTERS_ORBITTING = true;
 const INFINITE_ORBITTERS_CREATION = true;
 
 const GLOW_COUNT_MINIMUM = 30;
-const GLOW_COUNT_MAXIMUM = 500;
+const GLOW_COUNT_MAXIMUM = 150;
 const GLOW_COUNT_PERCENT = 0.15;
 
 const TIMER_FONT = "Verdana";
@@ -413,8 +413,7 @@ function collisionDetection() {
         // find nearby bodies
         let result = { list: [], touched: 0, skipped: 0, getObjects: 0 };
         let dis = magnitude(body.velocity) * DELTA_T; // maximum travel distance in a frame
-        let r = body.radius + dis;
-        r *= 1.5;
+        let r = body.radius * 1.5 + 2 * dis;
         let lx = body.position.x - r;
         let ly = body.position.y - r;
         let sz = r * 2;
