@@ -3,14 +3,19 @@
 const GRAVITY_CONSTANT = randomExp(1e2, 1e5);
 const MAX_BODY_RADIUS = 10;
 const SUPERSTAR_MASS = 1e7;
-const SUPERSTAR_RADIUS = MAX_BODY_RADIUS * 0.7;
 // const BODIES_COUNT = 500;
-var BODIES_COUNT = (parseInt(localStorage.getItem("bodyCount")) || 100);// * randomExp(0.8, 1 / 0.8);
-const INITIAL_STAR_DISTANCE = randomExp(500, 5000);
-const SPAWN_RADIUS_FACTOR = randomExp(0.15, 1 / 0.15);
+var BODIES_COUNT = (parseInt(localStorage.getItem("bodyCount")) || 2000);// * randomExp(0.8, 1 / 0.8);
+const DYNAMIC_BODY_COUNT = true;
+
+const INITIAL_STAR_DISTANCE = randomExp(750, 4000);
+const SPAWN_RADIUS_FACTOR = randomExp(0.2, 0.7);
+const STARS_ORBITTING = true;
+const ORBITTERS_ORBITTING = true;
+const INFINITE_ORBITTERS_CREATION = true;
 
 const GLOW_COUNT_MINIMUM = 30;
-const GLOW_COUNT_PERCENT = 0.25;
+const GLOW_COUNT_MAXIMUM = 500;
+const GLOW_COUNT_PERCENT = 0.15;
 
 const TIMER_FONT = "Verdana";
 const TIMER_FONT_SIZE = 12;
@@ -18,11 +23,12 @@ const TIMER_FONT_SIZE = 12;
 const INITIAL_DEVIATION = randomExp(0.7, 1 / 0.7);
 const EXPANSION_RATE = 0.01;
 const DELTA_T = 1 / 1000; // seconds
-const LOOP_INTERVAL = 1000 / 70 // 60 FPS
+const VELOCITY_MAX = null;
 
 const CCW = Math.floor(Math.random() * 2) * 2 - 1;
 const EPS = 1e-9;
-const BARNES_HUT_THETA = 1.25;
+const BARNES_HUT_THETA = 1;
+const FPS_LIMIT = 99;
 
 const INVISIBLE_CLEANUP = {
     maxDistance: 10,
@@ -83,16 +89,18 @@ window.onload = () => {
         spawnRadius: INITIAL_STAR_DISTANCE * SPAWN_RADIUS_FACTOR,
         orbitCount: BODIES_COUNT * (1 - d),
     });
-    let R = magnitude(s1.position, s2.position);
-    let m1 = s1.mass, m2 = s2.mass;
-    let M = m1 + m2;
-    let v = Math.sqrt(GRAVITY_CONSTANT * m1 * m2 / (R * 2) / (m1 + m2));
-    v *= randomFloat(0.7, 1);
-    s1.velocity = {
-        x: 0, y: v,
-    }
-    s2.velocity = {
-        x: 0, y: -v,
+    if (STARS_ORBITTING) {
+        let R = magnitude(s1.position, s2.position);
+        let m1 = s1.mass, m2 = s2.mass;
+        let M = m1 + m2;
+        let v = Math.sqrt(GRAVITY_CONSTANT * m1 * m2 / (R * 2) / (m1 + m2));
+        v *= randomFloat(0.7, 1);
+        s1.velocity = {
+            x: 0, y: v,
+        }
+        s2.velocity = {
+            x: 0, y: -v,
+        }
     }
 }
 
@@ -164,72 +172,65 @@ function createSuperStar({ x, y, spawnRadius = MAX_BODY_RADIUS * 50, ccw = CCW, 
                 initialRadius,
             });
         }
-        var itv = setInterval(() => {
-            if (superStar.deleted) {
-                clearInterval(itv);
-            }
-            for (let i = 0; i < 20; i++) {
-                if (bodies.length < BODIES_COUNT) {
-                    createRandomBody({
-                        centralBody: superStar,
-                        spawnRadius, ccw,
-                        initialRadius: 0,
-                    });
-                } else break;
-            }
-        }, 200);
+        if (INFINITE_ORBITTERS_CREATION) {
+            var itv = setInterval(() => {
+                if (superStar.deleted) {
+                    clearInterval(itv);
+                }
+                for (let i = 0; i < 20; i++) {
+                    if (bodies.length < BODIES_COUNT) {
+                        createRandomBody({
+                            centralBody: superStar,
+                            spawnRadius, ccw,
+                            initialRadius: 0,
+                        });
+                    } else break;
+                }
+            }, 150);
+        }
     }, 0);
     return superStar;
 }
 
-var mn = 1e9, mx = -1e9, ERR;
 // simulation loop
+var mn = 1e9, mx = -1e9, ERR;
 var times = [];
 var latestFPS, avgFPS = null, fpsDeviation = 70;
-var autoReload = 10;
 var start = performance.now();
+var lastTime = start;
 
 function refreshLoop() {
-    window.requestAnimationFrame(function () {
-        // FPS stuffs
-        const now = performance.now();
-        while (times.length > 0 && times[0] <= now - 1000) {
-            times.shift();
-        }
-        times.push(now);
-        latestFPS = times.length / Math.min(1, (performance.now() - start) / 1000);
-        if (avgFPS === null) avgFPS = latestFPS;
+    window.requestAnimationFrame(refreshLoop);
+    const now = performance.now();
 
-        let newFPS = avgFPS * 0.5 + 0.5 * latestFPS;
+    if (now - lastTime < 1000 / FPS_LIMIT) return;
+    lastTime = now;
 
-        let devi = Math.abs(newFPS - avgFPS);
-        fpsDeviation = fpsDeviation * 0.9 + 0.1 * devi;
-        avgFPS = newFPS;
+    // FPS stuffs
+    while (times.length > 0 && times[0] <= now - 1000) {
+        times.shift();
+    }
+    times.push(now);
+    latestFPS = times.length / Math.min(1, (performance.now() - start) / 1000);
+    if (avgFPS === null) avgFPS = latestFPS;
 
-        if (fpsDeviation < 4) {
-            if (avgFPS < 30) {
-                autoReload--;
-                autoReload === 0 && location.reload();
-            } else {
-                autoReload = 10;
-            }
-        }
+    let newFPS = avgFPS * 0.5 + 0.5 * latestFPS;
 
-        // works
-        loop();
-        updateBodyCount();
-        // calculate distance error
-        try {
-            let mag = magnitude(sub(bodies[0].position, bodies[1].position));
-            mn = Math.min(mag, mn);
-            mx = Math.max(mag, mx);
-            ERR = ((mx - mn) / mx * 100).toFixed(2);
-            // console.log(ERR);
-        } catch (e) { }
+    let devi = Math.abs(newFPS - avgFPS);
+    fpsDeviation = fpsDeviation * 0.9 + 0.1 * devi;
+    avgFPS = newFPS;
 
-        // next frame
-        refreshLoop();
-    });
+    // works
+    loop();
+    DYNAMIC_BODY_COUNT && (now - start > 1000) && updateBodyCount();
+    // calculate distance error
+    try {
+        let mag = magnitude(sub(bodies[0].position, bodies[1].position));
+        mn = Math.min(mag, mn);
+        mx = Math.max(mag, mx);
+        ERR = ((mx - mn) / mx * 100).toFixed(2);
+        // console.log(ERR);
+    } catch (e) { }
 }
 
 
@@ -248,17 +249,19 @@ function createRandomBody({ centralBody, spawnRadius = MAX_BODY_RADIUS * 50, ccw
         targetRadius: radius,
     });
     body.initialRadius *= body.mass;
-    // return;
-    let gravityDirection = normalize(gravityForce(body));
-    let F = Math.sqrt(GRAVITY_CONSTANT * centralBody.mass / r);
-    let f = mul(gravityDirection, F);
 
-    body.velocity.x = f.y * ccw + centralBody.velocity.x;
-    body.velocity.y = -f.x * ccw + centralBody.velocity.y;
+    if (ORBITTERS_ORBITTING) {
+        let gravityDirection = normalize(sub(centralBody.position, body.position));
+        let F = Math.sqrt(GRAVITY_CONSTANT * centralBody.mass / r);
+        let f = mul(gravityDirection, F);
 
-    let deviation = INITIAL_DEVIATION;
-    body.velocity.x *= randomFloat(1 / deviation, deviation);
-    body.velocity.y *= randomFloat(1 / deviation, deviation);
+        body.velocity.x = f.y * ccw + centralBody.velocity.x;
+        body.velocity.y = -f.x * ccw + centralBody.velocity.y;
+
+        let deviation = INITIAL_DEVIATION;
+        body.velocity.x *= randomFloat(1 / deviation, deviation);
+        body.velocity.y *= randomFloat(1 / deviation, deviation);
+    }
 }
 
 function createBody({ x, y, mass, initialRadius, targetRadius }) {
@@ -320,7 +323,7 @@ function renderBodies(bodies, camera = CAMERA) {
     if (drawn.length === 0) return;
 
     drawn.sort((a, b) => b.size - a.size);
-    let idx = Math.max(GLOW_COUNT_MINIMUM, Math.round(drawn.length * GLOW_COUNT_PERCENT));
+    let idx = Math.max(GLOW_COUNT_MINIMUM, Math.min(GLOW_COUNT_MAXIMUM, Math.round(drawn.length * GLOW_COUNT_PERCENT)));
     idx = Math.min(idx, drawn.length);
     shadowSizeThreshold = drawn[idx - 1].size - EPS;
 
@@ -349,14 +352,21 @@ function renderBodies(bodies, camera = CAMERA) {
 // simulation loop
 function loop() {
     let t = new Tick(0);
-    moveBodies();
-    t.tick("move bodies");
-    cleanUpBodies();
-    t.tick("clean up");
+    t.tick("----- start -----");
+    buildQuadTree();
+    t.tick("build quadtree");
+
     applyGravity();
     t.tick("apply gravity");
-    // collisionDetection();
-    // t.tick("collision detection");
+
+    collisionDetection();
+    t.tick("collision detection");
+
+    cleanUpBodies();
+    t.tick("clean up");
+
+    moveBodies();
+    t.tick("move bodies");
 
     // CAMERA.scale += (CAMERA.targetScale - CAMERA.scale) / Math.abs(CAMERA.targetScale - CAMERA.scale) * 0.1;
     CAMERA.scale += (CAMERA.targetScale - CAMERA.scale) * CAMERA.scalingFactor;
@@ -386,7 +396,7 @@ function loop() {
 
     // draw number of objects
     CONTEXT.font = TIMER_FONT_SIZE + "px " + TIMER_FONT;
-    CONTEXT.fillText(bodies.length + "/" + localStorage.getItem("bodyCount"), 10, UNIVERSE.height - 10);
+    CONTEXT.fillText(bodies.length + "/" + BODIES_COUNT, 10, UNIVERSE.height - 10);
 
     // draw [r]
     CONTEXT.font = TIMER_FONT_SIZE + "px " + TIMER_FONT;
@@ -394,34 +404,63 @@ function loop() {
 }
 
 function collisionDetection() {
+    let sum = 0, cnt = 0;
+    let collisions = [];
     // Collision simulation
-    for (let i0 = 0; i0 < bodies.length; i0++) {
-        for (let j0 = i0 + 1; j0 < bodies.length; j0++) {
-            let i = i0, j = j0;
-            let b1 = bodies[i];
-            let b2 = bodies[j];
-            if (b1.deleted || b2.deleted) {
-                continue;
-            }
-            if (b1.mass < b2.mass) {
-                [b1, b2] = [b2, b1];
-                [i, j] = [j, i];
-            }
-            let t = willCollide(b1, b2);
-            if (t === null || t >= DELTA_T) {
-                continue;
-            }
+    bodies.forEach((body, i) => {
+        if (body.deleted) return;
 
-            b1.targetRadius = Math.sqrt(b1.targetRadius * b1.targetRadius + b2.targetRadius * b2.targetRadius);
-            b1.velocity = mul(add(mul(b1.velocity, b1.mass), mul(b2.velocity, b2.mass)), 1 / (b1.mass + b2.mass));
-            b1.mass = b1.mass + b2.mass;
-            if (b1.radius < b2.radius) {
-                b1.radius = b2.radius;
-                b1.position = b2.position;
+        // find nearby bodies
+        let result = { list: [], touched: 0, skipped: 0, getObjects: 0 };
+        let dis = magnitude(body.velocity) * DELTA_T; // maximum travel distance in a frame
+        let r = body.radius + dis;
+        r *= 1.5;
+        let lx = body.position.x - r;
+        let ly = body.position.y - r;
+        let sz = r * 2;
+        qt.getInRange(lx, ly, sz, result);
+        sum += result.touched;
+
+        if (result.list.length > 1) {
+            let b1 = body;
+            for (const obj of result.list) {
+                if (obj === body.qtObj) continue;
+
+                // early stop
+                let b2 = obj.body;
+                if (b2.deleted) continue;
+
+                // check collision
+                let t = willCollide(b1, b2);
+                if (t === null || t > DELTA_T) continue;
+
+                if (b1.mass > b2.mass) {
+                    collisions.push([b1, b2]);
+                } else {
+                    collisions.push([b2, b1]);
+                }
             }
-            b2.deleted = true;
         }
-    }
+    });
+
+    collisions.forEach(([b1, b2]) => {
+        if (b1.deleted || b2.deleted) return;
+        cnt++;
+        // merge
+        let v1 = b1.targetRadius * b1.targetRadius;
+        let v2 = b2.targetRadius * b2.targetRadius;
+        b1.targetRadius = Math.sqrt((v1 * b1.mass + v2 * b2.mass) / (b1.mass + b2.mass));
+        b1.velocity = mul(add(mul(b1.velocity, b1.mass), mul(b2.velocity, b2.mass)), 1 / (b1.mass + b2.mass));
+        b1.mass = b1.mass + b2.mass;
+
+        if (b1.radius < b2.radius) {
+            b1.radius = b2.radius;
+            b1.position = b2.position;
+        }
+
+        b2.deleted = true;
+    })
+    // console.log("avg touched:", sum / bodies.length, " --- cnt:", cnt);
 }
 
 function moveBodies() {
@@ -434,8 +473,7 @@ function moveBodies() {
 }
 
 var qt;
-function applyGravity() {
-    let t = new Tick(0);
+function buildQuadTree() {
     if (bodies.length === 0) return;
     // use Quadtree
     let lx, ly, hx, hy;
@@ -451,22 +489,28 @@ function applyGravity() {
     qt = new QuadNode(null, lx, ly, Math.max(hx - lx, hy - ly) + EPS);
     qt.build(bodies.map(b => {
         b.qtObj = {
+            body: b,
             x: b.position.x,
             y: b.position.y,
             mass: b.mass,
         }
         return b.qtObj;
     }));
+}
 
-    t.tick();
+function applyGravity() {
     bodies.forEach((body) => {
-        let accel = zero();
-        qt.getAcceleration(body.qtObj, accel, BARNES_HUT_THETA * BARNES_HUT_THETA)
         // v = v + dv
-        body.velocity = add(body.velocity, mul(accel, DELTA_T * GRAVITY_CONSTANT));
+        body.velocity = add(body.velocity, mul(gravityAcceleration(body), DELTA_T * GRAVITY_CONSTANT));
+
+        // clip new velocity at VELOCITY_MAX
+        if (VELOCITY_MAX > 0) {
+            let newMag = magnitude(body.velocity);
+            if (newMag > VELOCITY_MAX) {
+                body.velocity = mul(body.velocity, VELOCITY_MAX / newMag);
+            }
+        }
     });
-    t.tick("gravity");
-    // t.tick("----------");
 }
 
 function cleanUpBodies() {
@@ -485,8 +529,9 @@ function cleanUpBodies() {
     bodies = newBodies;
 }
 
+var cleanedCnt = 0;
 function cleanUpFarParticles() {
-    let cnt = 0, cleanedCnt = 0;
+    let cnt = 0;
     bodies.forEach(b => cnt += (!b.deleted ? 1 : 0));
     cnt = Math.max(cnt - BODIES_COUNT);
     bodies.forEach((b) => {
@@ -517,8 +562,8 @@ function magnitude(a) {
     return Math.sqrt(a.x * a.x + a.y * a.y);
 }
 function normalize(a) {
-    let mag = magnitude(a);
-    return { x: a.x / mag, y: a.y / mag };
+    let angle = Math.atan2(a.y, a.x);
+    return { x: Math.cos(angle), y: Math.sin(angle) };
 }
 
 // arithmetic functions
@@ -584,18 +629,11 @@ function alignScreenAndUniverse(screenXY, universeXY, camera = CAMERA) {
     }
 }
 
-// physics functions
-function gravityForce(body) {
-    let force = zero();
-    bodies.forEach((other) => {
-        if (body !== other) {
-            let distance = magnitude(sub(body.position, other.position));
-            // f = G*m1*m2*(x1-x2)/r^3
-            let f = mul(sub(other.position, body.position), GRAVITY_CONSTANT * body.mass * other.mass / (distance * distance * distance + EPS));
-            force = add(force, f);
-        }
-    });
-    return force;
+// return acceleration caused by gravity
+function gravityAcceleration(body) {
+    let accel = zero();
+    qt.getAcceleration(body.qtObj, accel, BARNES_HUT_THETA * BARNES_HUT_THETA);
+    return accel;
 }
 
 // return the earliest time that two bodies collide, given their current positions and velocities.
@@ -627,7 +665,7 @@ function gravityForce(body) {
 // b = 2*((dx - du)*(x - u) + (dy - dv)*(y - v))
 // c = (x - u)^2 + (y - v)^2 - R^2
 function willCollide(body1, body2) {
-    let R = Math.max(body1.radius, body2.radius) - 0.5 * Math.min(body1.radius, body2.radius)
+    let R = Math.max(body1.radius, body2.radius);// + 0 * Math.min(body1.radius, body2.radius)
     let x = body1.position.x;
     let y = body1.position.y;
     let dx = body1.velocity.x;
@@ -730,33 +768,41 @@ var reloadTime = randomExp(3 * 60, 5 * 60); // seconds
             // clearInterval(i);
             location.reload();
         }
-    }, LOOP_INTERVAL * 10);
+    }, 100);
 })()
 
-var bodyCount = BODIES_COUNT;
+// var bodyCount = BODIES_COUNT;
+var autoReload = 10;
 function updateBodyCount() {
     if (drawnCnt < bodies.length * 0.8) return;
-    if (avgFPS > 59) {
-        bodyCount = Math.round(bodyCount * 0.7 + 0.3 * bodies.length * randomExp(1.3, 1.6));
-        if (bodies.length >= BODIES_COUNT && BODIES_COUNT < bodyCount * 0.7) {
-            BODIES_COUNT = Math.round(BODIES_COUNT * randomExp(1.05, 1.15));
-        }
-    } else if (avgFPS >= 57) {
-        bodyCount = Math.round(bodyCount * 0.8 + 0.2 * bodies.length * randomExp(1.1, 1.3));
-    } else if (avgFPS >= 55) {
+    if (avgFPS > 35) {
+        BODIES_COUNT = Math.round(BODIES_COUNT * 0.7 + 0.3 * bodies.length * randomExp(1.3, 1.6));
+        // if (bodies.length >= BODIES_COUNT && BODIES_COUNT < bodyCount * 0.7) {
+        //     BODIES_COUNT = Math.round(BODIES_COUNT * randomExp(1.05, 1.15));
+        // }
+    } else if (avgFPS >= 32) {
+        BODIES_COUNT = Math.round(BODIES_COUNT * 0.8 + 0.2 * bodies.length * randomExp(1.1, 1.3));
+    } else if (avgFPS >= 28) {
         // fps is ok, flunctuate it only a bit
-        bodyCount = Math.round(bodyCount * 0.9 + 0.1 * bodies.length * randomExp(0.90, 1.1));
-    } else if (avgFPS >= 50) {
-        bodyCount = Math.round(bodyCount * 0.7 + 0.3 * bodies.length / randomExp(1.1, 1.3));
-    } else if (avgFPS >= 15) {
-        bodyCount = Math.round(bodyCount * 0.6 + 0.4 * bodies.length / randomExp(1.3, 1.6));
+        BODIES_COUNT = Math.round(BODIES_COUNT * 0.9 + 0.1 * bodies.length * randomExp(0.95, 1.05));
+    } else if (avgFPS >= 20) {
+        BODIES_COUNT = Math.round(BODIES_COUNT * 0.7 + 0.3 * bodies.length / randomExp(1.1, 1.3));
+    } else if (avgFPS >= 10) {
+        BODIES_COUNT = Math.round(BODIES_COUNT * 0.6 + 0.4 * bodies.length / randomExp(1.3, 1.6));
     } else {
-        bodyCount = Math.round(bodyCount * 0.5 + 0.5 * bodies.length / randomExp(1.6, 1.9));
+        BODIES_COUNT = Math.round(BODIES_COUNT * 0.5 + 0.5 * bodies.length / randomExp(1.6, 1.9));
     }
-    return null;
+    if (fpsDeviation < 4) {
+        if (avgFPS < 15) {
+            autoReload--;
+            autoReload === 0 && location.reload();
+        } else {
+            autoReload = 10;
+        }
+    }
 };
-setInterval(() => {
+DYNAMIC_BODY_COUNT && setInterval(() => {
     let old = localStorage.getItem("bodyCount");
-    localStorage.setItem("bodyCount", Math.round(old * 0.7 + 0.3 * bodyCount));
+    localStorage.setItem("bodyCount", Math.round(old * 0.7 + 0.3 * BODIES_COUNT));
 }, 300);
 refreshLoop();

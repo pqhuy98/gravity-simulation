@@ -1,8 +1,9 @@
 class QuadNode {
     static EPS = 1e-7;
 
-    constructor(parent = null, lx = 0, ly = 0, sz = 0) {
+    constructor(parent = null, lx = 0, ly = 0, sz = 0, dir = "") {
         // internal properties
+        this.id = parent === null ? "root" : parent.id + "/" + dir;
         this.parent = parent;
         this.depth = parent === null ? 1 : parent.depth + 1;
         this.lx = lx;
@@ -26,6 +27,10 @@ class QuadNode {
             obj.x < this.lx + this.sz &&
             obj.y >= this.ly &&
             obj.y < this.ly + this.sz);
+    }
+
+    intersect(lx, ly, sz) {
+        return !(this.lx >= lx + sz || this.lx + this.sz <= lx) && !(this.ly >= ly + sz || this.ly + this.sz <= ly);
     }
 
     __update(updateExtra = true) {
@@ -71,7 +76,7 @@ class QuadNode {
             if (this.children.length === 0) {
                 for (let i = 0; i < 2; i++) {
                     for (let j = 0; j < 2; j++) {
-                        this.children.push(new QuadNode(this, this.lx + i * this.sz / 2, this.ly + j * this.sz / 2, this.sz / 2));
+                        this.children.push(new QuadNode(this, this.lx + i * this.sz / 2, this.ly + j * this.sz / 2, this.sz / 2, i * 2 + j));
                     }
                 }
             }
@@ -146,6 +151,43 @@ class QuadNode {
         } else {
             for (const child of this.children) {
                 child.getAcceleration(obj, result, theta);
+            }
+        }
+    }
+
+    // find all objects in range
+    getInRange(lx, ly, sz, result) {
+        // verbose && console.log(this.id, verbose);
+        if (this.objCnt === 1 || lx <= this.lx && ly <= this.ly && this.lx + this.sz <= lx + sz && this.ly + this.sz <= ly + sz) {
+            // this node is completely inside the range
+            if (this.parent && !this.intersect(lx, ly, sz)) {
+                console.log(this, lx, ly, sz);
+            }
+            result.getObjects++;
+            this.getObjects(lx, ly, sz, result);
+        } else {
+            result.touched++;
+            for (const child of this.children) {
+                if (child.objCnt > 0 && child.intersect(lx, ly, sz)) {
+                    child.getInRange(lx, ly, sz, result);
+                } else {
+                    result.skipped += child.nodeCount;
+                }
+            }
+        }
+    }
+
+    getObjects(lx, ly, sz, result) {
+        result.touched++;
+        if (this.object !== null &&
+            lx <= this.object.x && this.object.x < lx + sz &&
+            ly <= this.object.y && this.object.y < ly + sz) {
+            result.list.push(this.object);
+            return;
+        }
+        for (const child of this.children) {
+            if (child.objCnt > 0) {
+                child.getObjects(lx, ly, sz, result);
             }
         }
     }
