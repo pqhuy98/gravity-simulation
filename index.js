@@ -384,8 +384,12 @@ function loop() {
     CONTEXT.clearRect(0, 0, UNIVERSE.width, UNIVERSE.height);
 
     // draw timer text
+    // CONTEXT.font = TIMER_FONT_SIZE + "px " + TIMER_FONT;
+    // CONTEXT.fillText(Math.ceil(reloadTime), 10, 10 + TIMER_FONT_SIZE);
+
+    // draw instruction
     CONTEXT.font = TIMER_FONT_SIZE + "px " + TIMER_FONT;
-    CONTEXT.fillText(Math.ceil(reloadTime), 10, 10 + TIMER_FONT_SIZE);
+    CONTEXT.fillText("SCROLL - DRAG - CLICK", 10, 10 + TIMER_FONT_SIZE);
 
     // draw bodies
     renderBodies(bodies);
@@ -755,20 +759,20 @@ document.onkeypress = function (e) {
     }
 };
 
-var reloadTime = randomExp(3 * 60, 5 * 60); // seconds
-// Surprise reload
-(() => {
-    var lastTime = performance.now();
-    let i = setInterval(() => {
-        let dt = (performance.now() - lastTime) / 1000;
-        lastTime = performance.now();
-        reloadTime -= dt;
-        if (reloadTime <= 0) {
-            // clearInterval(i);
-            location.reload();
-        }
-    }, 100);
-})()
+// var reloadTime = randomExp(3 * 60, 5 * 60); // seconds
+// // Surprise reload
+// (() => {
+//     var lastTime = performance.now();
+//     let i = setInterval(() => {
+//         let dt = (performance.now() - lastTime) / 1000;
+//         lastTime = performance.now();
+//         reloadTime -= dt;
+//         if (reloadTime <= 0) {
+//             // clearInterval(i);
+//             location.reload();
+//         }
+//     }, 100);
+// })()
 
 // var bodyCount = BODIES_COUNT;
 var autoReload = 10;
