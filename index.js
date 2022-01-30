@@ -31,8 +31,8 @@ const BARNES_HUT_THETA = 1;
 const FPS_LIMIT = 99;
 
 const INVISIBLE_CLEANUP = {
-    maxDistance: 10,
-    durationThreshold: 2, // seconds
+    maxDistance: 20,
+    durationThreshold: 20, // seconds
     massThreshold: 2,
 }
 
