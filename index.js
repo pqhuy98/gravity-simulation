@@ -339,14 +339,15 @@ function renderBodies(bodies, camera = CAMERA) {
     })
 
     // draw white circular stars
+    CONTEXT.beginPath();
     CONTEXT.shadowColor = "transparent";
     CONTEXT.shadowBlur = 0;
     drawn.forEach((draw) => {
         let { x, y, size } = draw;
-        CONTEXT.beginPath();
+        CONTEXT.moveTo(x + size, y);
         CONTEXT.arc(x, y, size, 0, 2 * Math.PI);
-        CONTEXT.fill();
     });
+    CONTEXT.fill();
 }
 
 // simulation loop
