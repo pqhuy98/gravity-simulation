@@ -390,7 +390,7 @@ function loop() {
 
     // draw instruction
     CONTEXT.font = TIMER_FONT_SIZE + "px " + TIMER_FONT;
-    CONTEXT.fillText("SCROLL - DRAG - CLICK", 10, 10 + TIMER_FONT_SIZE);
+    CONTEXT.fillText("SCROLL - DRAG - CLICK - [R]", 10, 10 + TIMER_FONT_SIZE);
 
     // draw bodies
     renderBodies(bodies);
@@ -402,10 +402,6 @@ function loop() {
     // draw number of objects
     CONTEXT.font = TIMER_FONT_SIZE + "px " + TIMER_FONT;
     CONTEXT.fillText(bodies.length + "/" + BODIES_COUNT, 10, UNIVERSE.height - 10);
-
-    // draw [r]
-    CONTEXT.font = TIMER_FONT_SIZE + "px " + TIMER_FONT;
-    CONTEXT.fillText("[R]", UNIVERSE.width - 27, UNIVERSE.height - 10);
 }
 
 function collisionDetection() {
