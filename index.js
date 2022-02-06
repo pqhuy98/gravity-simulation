@@ -1,6 +1,6 @@
 // constants
 
-const GRAVITY_CONSTANT = randomExp(1e2, 1e3);
+const GRAVITY_CONSTANT = randomExp(1e2, 1e5);
 const MAX_BODY_RADIUS = 10;
 const SUPERSTAR_MASS = 1e7;
 // const BODIES_COUNT = 500;
@@ -8,7 +8,7 @@ var BODIES_COUNT = (parseInt(localStorage.getItem("bodyCount")) || 2000);// * ra
 const DYNAMIC_BODY_COUNT = true;
 
 const INITIAL_STAR_DISTANCE = randomExp(750, 4000);
-const SPAWN_RADIUS_FACTOR = randomExp(0.2, 0.7);
+const SPAWN_RADIUS_FACTOR = randomExp(1, 7);
 const STARS_ORBITTING = true;
 const ORBITTERS_ORBITTING = true;
 const INFINITE_ORBITTERS_CREATION = true;
@@ -20,7 +20,7 @@ const GLOW_COUNT_PERCENT = 0.15;
 const TIMER_FONT = "Verdana";
 const TIMER_FONT_SIZE = 12;
 
-const INITIAL_DEVIATION = randomExp(0.7, 1 / 0.7);
+const INITIAL_DEVIATION = randomExp(0.5, 1 / 0.5);
 const EXPANSION_RATE = 0.01;
 const DELTA_T = 1 / 1000; // seconds
 const VELOCITY_MAX = null;
@@ -38,11 +38,12 @@ const INVISIBLE_CLEANUP = {
 
 var CAMERA = {
     position: {
-        x: 0,
-        y: 0,
+        x: 0, y: 0,
+        // x: (2 * Math.random() - 1) * INITIAL_STAR_DISTANCE * SPAWN_RADIUS_FACTOR * 0.5,
+        // y: (2 * Math.random() - 1) * INITIAL_STAR_DISTANCE * SPAWN_RADIUS_FACTOR * 0.5,
     },
-    scale: randomExp(10, 10),
-    targetScale: randomExp(10, 10),
+    scale: randomExp(300, 300),
+    targetScale: randomExp(3, 5),
     scalingFactor: randomFloat(0.1, 0.3),
     cursorLock: {
         isMoving: false,
@@ -158,11 +159,12 @@ UNIVERSE.addEventListener("mousemove", e => {
 
 // generate initial bodies
 function createSuperStar({ x, y, spawnRadius = MAX_BODY_RADIUS * 50, ccw = CCW, orbitCount = 0, initialRadius = 1 }) {
+    let radiusFactor = randomFloat(3, 10);
     let superStar = createBody({
         x, y,
         mass: SUPERSTAR_MASS,
-        initialRadius: 3 * MAX_BODY_RADIUS * initialRadius,
-        targetRadius: 3 * MAX_BODY_RADIUS,
+        initialRadius: radiusFactor * MAX_BODY_RADIUS * initialRadius,
+        targetRadius: radiusFactor * MAX_BODY_RADIUS,
     });
     setTimeout(() => {
         for (let i = 0; i < orbitCount; i++) {
@@ -288,8 +290,11 @@ function createBody({ x, y, mass, initialRadius, targetRadius }) {
     return body;
 }
 var drawnCnt = 0;
+let color = "hsl(" + (Math.random() * 360) + ", 100%, 70%)";
+
 function renderBodies(bodies, camera = CAMERA) {
     CONTEXT.fillStyle = "white";
+    CONTEXT.strokeStyle = "white";
     CONTEXT.shadowOffsetX = 0;
     CONTEXT.shadowOffsetY = 0;
     CONTEXT.shadowBlur = 50 / camera.scale;
@@ -312,12 +317,11 @@ function renderBodies(bodies, camera = CAMERA) {
             return;
         }
 
-        let color = "hsl(" + ((body.baseHue - 1 * Math.log(body.radius)) % 360) + ", 100%, 70%)";
 
         if (Math.abs(pos.x * 2 - 1) < INVISIBLE_CLEANUP.maxDistance && Math.abs(pos.y * 2 - 1) < INVISIBLE_CLEANUP.maxDistance) {
             body.lastShown = Date.now();
         }
-        drawn.push({ x, y, size, color });
+        drawn.push({ x, y, size });
     });
     drawnCnt = drawn.length;
     if (drawn.length === 0) return;
@@ -325,27 +329,29 @@ function renderBodies(bodies, camera = CAMERA) {
     drawn.sort((a, b) => b.size - a.size);
     let idx = Math.max(GLOW_COUNT_MINIMUM, Math.min(GLOW_COUNT_MAXIMUM, Math.round(drawn.length * GLOW_COUNT_PERCENT)));
     idx = Math.min(idx, drawn.length);
-    shadowSizeThreshold = drawn[idx - 1].size - EPS;
 
     // draw shadows
-    drawn.forEach((draw) => {
-        let { x, y, size, color } = draw;
-        if (size > shadowSizeThreshold) {
-            CONTEXT.shadowColor = color;
-            CONTEXT.beginPath();
+    CONTEXT.beginPath();
+    CONTEXT.shadowColor = color;
+    drawn.forEach((draw, i) => {
+        let { x, y, size } = draw;
+        if (i < idx) {
+            CONTEXT.moveTo(x + size, y);
             CONTEXT.arc(x, y, size, 0, 2 * Math.PI);
-            CONTEXT.fill();
         }
     })
+    CONTEXT.fill();
 
     // draw white circular stars
     CONTEXT.beginPath();
     CONTEXT.shadowColor = "transparent";
     CONTEXT.shadowBlur = 0;
-    drawn.forEach((draw) => {
-        let { x, y, size } = draw;
-        CONTEXT.moveTo(x + size, y);
-        CONTEXT.arc(x, y, size, 0, 2 * Math.PI);
+    drawn.forEach((draw, i) => {
+        if (i >= idx) {
+            let { x, y, size } = draw;
+            CONTEXT.moveTo(x + size, y);
+            CONTEXT.arc(x, y, size, 0, 2 * Math.PI);
+        }
     });
     CONTEXT.fill();
 }
@@ -414,7 +420,7 @@ function collisionDetection() {
         // find nearby bodies
         let result = { list: [], touched: 0, skipped: 0, getObjects: 0 };
         let dis = magnitude(body.velocity) * DELTA_T; // maximum travel distance in a frame
-        let r = body.radius * 1.5 + 2 * dis;
+        let r = body.radius * 2 + 2 * dis;
         let lx = body.position.x - r;
         let ly = body.position.y - r;
         let sz = r * 2;
@@ -555,6 +561,9 @@ function sub(a, b) {
 function mul(a, k) {
     return { x: a.x * k, y: a.y * k };
 }
+function dot(a, b) {
+    return a.x * b.x + a.y * b.y;
+}
 function zero() {
     return { x: 0, y: 0 };
 }
@@ -665,7 +674,7 @@ function gravityAcceleration(body) {
 // b = 2*((dx - du)*(x - u) + (dy - dv)*(y - v))
 // c = (x - u)^2 + (y - v)^2 - R^2
 function willCollide(body1, body2) {
-    let R = Math.max(body1.radius, body2.radius);// + 0 * Math.min(body1.radius, body2.radius)
+    let R = Math.max(body1.radius, body2.radius);
     let x = body1.position.x;
     let y = body1.position.y;
     let dx = body1.velocity.x;

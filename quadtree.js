@@ -163,9 +163,6 @@ class QuadNode {
         // verbose && console.log(this.id, verbose);
         if (this.objCnt === 1 || lx <= this.lx && ly <= this.ly && this.lx + this.sz <= lx + sz && this.ly + this.sz <= ly + sz) {
             // this node is completely inside the range
-            if (this.parent && !this.intersect(lx, ly, sz)) {
-                console.log(this, lx, ly, sz);
-            }
             result.getObjects++;
             this.getObjects(lx, ly, sz, result);
         } else {
